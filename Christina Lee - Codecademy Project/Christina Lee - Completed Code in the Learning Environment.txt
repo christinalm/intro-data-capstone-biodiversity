@@ -1,0 +1,95 @@
+https://gist.github.com/codecademydev/2cf45de94606419b19a8346e89df8862
+
+import codecademylib
+import matplotlib as plt
+import pandas as pd
+from scipy.stats import chi2_contingency
+
+species = pd.read_csv('species_info.csv')
+#columns: category, scientific_name, common_names, conservation_status
+
+#INSPECT THE DATAFRAME
+species_count = species.scientific_name.nunique()
+#answer: 5,541 different species
+species_type = species.category.unique()
+#answer: 7 categories: mammal, bird, reptile, amphibian, fish, vascular plant and nonvascular plant
+conservation_statuses = species.conservation_status.unique()
+#answer: 5 conservation statuses: nan, species of concern, endangered, threatened, and in recovery
+
+#ANALYZE SPECIES CONSERVATION STATUS
+conservation_counts = species.groupby('conservation_status').scientific_name.nunique().reset_index()
+#answer: endangered-15 // in recovery-4 // species of concern-151 // threatened -10
+species.fillna('No Intervention', inplace = True)
+protection_counts = species.groupby('conservation_status').scientific_name.nunique().reset_index().sort_values(by='scientific_name')
+#answer: in recovery-4 // threatened -10 // endangered-15 // species of concern-151 // no intervention-5363
+
+#PLOTTING CONSERVATION STATUS BY SPECIES
+#plt.figure(figsize=(10, 4))
+#ax = plt.subplot()
+#plt.bar(range(len(protection_counts)),protection_counts.scientific_name.values)
+#ax.set_xticks(range(len(protection_counts)))
+#ax.set_xticklabels(protection_counts.conservation_status.values)
+#plt.ylabel('Number of Species')
+#plt.title('Conservation Status by Species')
+#labels = [e.get_text() for e in ax.get_xticklabels()]
+#plt.show()
+
+#INVESTIGATING ENDANGERED SPECIES
+species['is_protected'] = species.conservation_status != 'No Intervention'
+category_counts = species.groupby(['category', 'is_protected']).scientific_name.nunique().reset_index()
+#print category_counts.head()
+category_pivot = category_counts.pivot(columns = 'is_protected', index = 'category', values = 'scientific_name').reset_index()
+#print category_pivot
+category_pivot.columns = ['category', 'not_protected', 'protected']
+category_pivot['percent_protected'] = category_pivot.protected / (category_pivot.protected + category_pivot.not_protected)
+#print category_pivot
+
+#CHI-SQUARED TEST FOR SIGNIFICANCE
+contingency = [[30,146], [75,413]]
+chi2, pval, dof, expected = chi2_contingency(contingency)
+#print pval
+#answer: 0.687594809666 - not significant
+contingency2 = [[5,73], [30,146]]
+chi2, pval_reptile_mammal, dof, expected = chi2_contingency(contingency2)
+#print pval_reptile_mammal
+#answer: 0.0383555902297 - significant
+
+#OBSERVATIONS DATAFRAME
+observations = pd.read_csv('observations.csv')
+#print observations.head()
+#columns: scientific_name, park_name, observations
+
+#IN SEARCH OF SHEEP
+species['is_sheep'] = species.common_names.apply(lambda x: 'Sheep' in x)
+species_is_sheep = species[species.is_sheep]
+#print species_is_sheep
+sheep_species = species[species.is_sheep & (species.category == 'Mammal')]
+#print sheep_species
+
+#MERGING SHEEP + OBSERVATION DATAFRAMES
+sheep_observations = observations.merge(sheep_species)
+#print sheep_observations.head()
+obs_by_park = sheep_observations.groupby('park_name').observations.sum().reset_index()
+#print obs_by_park
+#answer: bryce park-250 // great smoky mountains-149 // yellowstone-507 // yosemite-282
+
+#PLOTTING SHEEP SIGHTINGS
+plt.figure(figsize=(16, 4))
+ax = plt.subplot()
+plt.bar(range(len(obs_by_park)), obs_by_park.observations.values)
+ax.set_xticks(range(len(obs_by_park)))
+ax.set_xticklabels(obs_by_park.park_name.values)
+plt.ylabel('Number of Observations')
+plt.title('Observations of Sheep per Week')
+plt.show()
+
+#FOOT AND MOUTH REDUCTION EFFORT - SAMPLE SIZE DETERMINATION
+baseline = 15
+minimum_detectable_effect = 100 * 5 / 15
+#answer: 33 // this effect is a % of baseline so if we wanted to observe a % change with confidence
+sample_size_per_variant = 520
+#baseline = 15 // statistical significance = 90% // minimum detectable effect = 33
+yellowstone_weeks_observing = sample_size_per_variant/507.
+#answer: 1.02564102564 // number of weeks needed to observe enough sheep at yellowstone
+bryce_weeks_observing = sample_size_per_variant/250.
+#answer: 2.08 weeks to observe enough sheep at bryce
