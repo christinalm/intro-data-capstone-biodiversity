@@ -1,5 +1,3 @@
-https://gist.github.com/codecademydev/2cf45de94606419b19a8346e89df8862
-
 import codecademylib
 import matplotlib as plt
 import pandas as pd
